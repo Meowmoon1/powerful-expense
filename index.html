@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- PWA Meta Tags (Updated) -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SG Tracker">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Track your daily expenses in Singapore - hawker meals, MRT trips, and more">
+  
+  <!-- PWA Links -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  
+  <title>SG Expense Tracker</title>
+  
+  <!-- Google Fonts - DM Sans for a clean, modern look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-card: rgba(30, 41, 59, 0.6);
+      --border-color: rgba(71, 85, 105, 0.4);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-orange: #f97316;
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ec4899;
+      --accent-cyan: #06b6d4;
+      --safe-area-top: env(safe-area-inset-top, 0px);
+      --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding-top: var(--safe-area-top);
+      padding-bottom: var(--safe-area-bottom);
+    }
+    
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      max-width: 500px;
+      margin: 0 auto;
+      background: linear-gradient(180deg, #0f172a 0%, #1a1f35 50%, #0f172a 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Ambient glow effects */
+    .ambient-glow {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    .glow-1 {
+      background: var(--accent-blue);
+      top: -100px;
+      right: -100px;
+    }
+    
+    .glow-2 {
+      background: var(--accent-purple);
+      bottom: 100px;
+      left: -150px;
+    }
+    
+    /* Header */
+    .header {
+      padding: 16px 20px;
+      position: relative;
+      z-index: 10;
+    }
+    
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .header-date {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      background: var(--bg-card);
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+    }
+    
+    .sync-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+    
+    .sync-dot.offline {
+      background: var(--accent-orange);
+    }
+    
+    /* Main content area */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0 20px 100px;
+      position: relative;
+      z-index: 5;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Summary Cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .summary-card.large {
+      grid-column: span 2;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    
+    .summary-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    
+    .summary-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    
+    .summary-value.large {
+      font-size: 32px;
+    }
+    
+    .summary-value.positive {
+      color: var(--accent-green);
+    }
+    
+    .summary-value.negative {
+      color: var(--accent-red);
+    }
+    
+    .summary-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    
+    /* Quick Add Buttons */
+    .quick-add-section {
+      margin-bottom: 24px;
+    }
+    
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .quick-add-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    
+    .quick-add-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .quick-add-btn:active {
+      transform: scale(0.95);
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--accent-blue);
+    }
+    
+    .quick-add-btn .icon {
+      font-size: 24px;
+    }
+    
+    .quick-add-btn .label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    
+    .quick-add-btn .amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    
+    /* Budget Progress */
+    .budget-section {
+      margin-bottom: 24px;
+    }
+    
+    .budget-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    
+    .budget-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .budget-title {
+      font-weight: 600;
+    }
+    
+    .budget-amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+    }
+    
+    .budget-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    
+    .budget-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    
+    .budget-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* Transaction List */
+    .transactions-section {
+      margin-bottom: 24px;
+    }
+    
+    .transaction-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .transaction-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      transition: all 0.2s ease;
+    }
+    
+    .transaction-item:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .transaction-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    
+    .transaction-details {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .transaction-desc {
+      font-weight: 500;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .transaction-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .transaction-amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    
+    .transaction-amount.expense {
+      color: var(--accent-red);
+    }
+    
+    .transaction-amount.income {
+      color: var(--accent-green);
+    }
+    
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 12px 20px;
+      padding-bottom: calc(12px + var(--safe-area-bottom));
+      background: rgba(15, 23, 42, 0.95);
+      border-top: 1px solid var(--border-color);
+      backdrop-filter: blur(20px);
+      z-index: 100;
+    }
+    
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .nav-btn.active {
+      color: var(--accent-blue);
+    }
+    
+    .nav-btn .icon {
+      font-size: 22px;
+    }
+    
+    .nav-btn .label {
+      font-size: 10px;
+      font-weight: 500;
+    }
+    
+    .nav-btn.add-btn {
+      background: var(--accent-blue);
+      color: white;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      margin-top: -28px;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+      flex-direction: row;
+      padding: 0;
+    }
+    
+    .nav-btn.add-btn .icon {
+      font-size: 28px;
+    }
+    
+    .nav-btn.add-btn:active {
+      transform: scale(0.95);
+    }
+    
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      padding: 24px;
+      padding-bottom: calc(24px + var(--safe-area-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+    
+    .modal-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--text-muted);
+      border-radius: 2px;
+      margin: 0 auto 20px;
+      opacity: 0.5;
+    }
+    
+    .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    /* Form */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 16px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    
+    .form-input.amount-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    /* Type Toggle */
+    .type-toggle {
+      display: flex;
+      gap: 8px;
+      padding: 4px;
+      background: var(--bg-primary);
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    
+    .type-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: transparent;
+      color: var(--text-muted);
+    }
+    
+    .type-btn.active.expense {
+      background: var(--accent-red);
+      color: white;
+    }
+    
+    .type-btn.active.income {
+      background: var(--accent-green);
+      color: white;
+    }
+    
+    /* Category Grid */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .category-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 4px;
+      background: var(--bg-primary);
+      border: 2px solid transparent;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .category-btn.selected {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.1);
+    }
+    
+    .category-btn .icon {
+      font-size: 24px;
+    }
+    
+    .category-btn .label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    
+    /* Submit Button */
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--accent-blue);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .submit-btn:active {
+      transform: scale(0.98);
+      background: #2563eb;
+    }
+    
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Loading spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Toast notifications */
+    .toast {
+      position: fixed;
+      top: calc(20px + var(--safe-area-top));
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      z-index: 300;
+      transition: transform 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    .toast.success {
+      border-color: var(--accent-green);
+    }
+    
+    .toast.error {
+      border-color: var(--accent-red);
+    }
+    
+    /* Setup Screen */
+    .setup-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 40px 24px;
+      text-align: center;
+    }
+    
+    .setup-icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+    }
+    
+    .setup-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    
+    .setup-desc {
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      max-width: 280px;
+    }
+    
+    .setup-input {
+      width: 100%;
+      max-width: 300px;
+      margin-bottom: 12px;
+    }
+    
+    .setup-btn {
+      width: 100%;
+      max-width: 300px;
+      padding: 14px;
+      background: var(--accent-blue);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    
+    .setup-skip {
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.3s ease forwards;
+    }
+    
+    .stagger-1 { animation-delay: 0.05s; opacity: 0; }
+    .stagger-2 { animation-delay: 0.1s; opacity: 0; }
+    .stagger-3 { animation-delay: 0.15s; opacity: 0; }
+    .stagger-4 { animation-delay: 0.2s; opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  
+  <!-- Load Supabase from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    
+    // Supabase configuration - User needs to set these
+    const SUPABASE_URL = localStorage.getItem('supabase_url') || '';
+    const SUPABASE_KEY = localStorage.getItem('supabase_key') || '';
+    
+    // Initialize Supabase client (renamed to avoid conflicts)
+    let supabaseClient = null;
+    if (SUPABASE_URL && SUPABASE_KEY && window.supabase) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+    
+    // ============================================
+    // SINGAPORE-SPECIFIC DATA
+    // ============================================
+    
+    const CATEGORIES = [
+      { id: 1, name: 'Hawker', icon: '🍜', color: '#f97316' },
+      { id: 2, name: 'Transport', icon: '🚇', color: '#3b82f6' },
+      { id: 3, name: 'Groceries', icon: '🛒', color: '#84cc16' },
+      { id: 4, name: 'Shopping', icon: '🛍️', color: '#ec4899' },
+      { id: 5, name: 'Bills', icon: '📄', color: '#06b6d4' },
+      { id: 6, name: 'Kopi/Drinks', icon: '☕', color: '#8b5cf6' },
+      { id: 7, name: 'Entertainment', icon: '🎬', color: '#f43f5e' },
+      { id: 8, name: 'Health', icon: '💊', color: '#10b981' },
+      { id: 9, name: 'Grab/Taxi', icon: '🚕', color: '#eab308' },
+      { id: 10, name: 'Dining', icon: '🍽️', color: '#f97316' },
+      { id: 11, name: 'Subscriptions', icon: '📱', color: '#a855f7' },
+      { id: 12, name: 'Other', icon: '📦', color: '#64748b' },
+    ];
+    
+    const INCOME_CATEGORIES = [
+      { id: 100, name: 'Salary', icon: '💰', color: '#10b981' },
+      { id: 101, name: 'Freelance', icon: '💼', color: '#3b82f6' },
+      { id: 102, name: 'Angbao', icon: '🧧', color: '#ef4444' },
+      { id: 103, name: 'Investment', icon: '📈', color: '#8b5cf6' },
+      { id: 104, name: 'Other', icon: '✨', color: '#64748b' },
+    ];
+    
+    // Quick add presets for Singapore
+    const QUICK_ADDS = [
+      { icon: '🍜', label: 'Hawker', amount: 5, category_id: 1 },
+      { icon: '🚇', label: 'MRT', amount: 2, category_id: 2 },
+      { icon: '☕', label: 'Kopi', amount: 1.50, category_id: 6 },
+      { icon: '🚕', label: 'Grab', amount: 15, category_id: 9 },
+    ];
+    
+    const MONTHLY_BUDGET = 3000; // Default monthly budget
+    
+    // ============================================
+    // APP STATE
+    // ============================================
+    
+    let state = {
+      isSetup: !!(SUPABASE_URL && SUPABASE_KEY) || localStorage.getItem('skipSetup'),
+      isOnline: navigator.onLine,
+      activeTab: 'home',
+      showModal: false,
+      transactions: JSON.parse(localStorage.getItem('transactions') || '[]'),
+      pendingSync: JSON.parse(localStorage.getItem('pendingSync') || '[]'),
+      formData: {
+        amount: '',
+        description: '',
+        category_id: 1,
+        isExpense: true,
+        date: new Date().toISOString().split('T')[0],
+      },
+      monthlyBudget: parseFloat(localStorage.getItem('monthlyBudget') || MONTHLY_BUDGET),
+    };
+    
+    // ============================================
+    // UTILITIES
+    // ============================================
+    
+    const formatMoney = (amount) => {
+      return new Intl.NumberFormat('en-SG', {
+        style: 'currency',
+        currency: 'SGD',
+        minimumFractionDigits: 2,
+      }).format(amount);
+    };
+    
+    const formatDate = (dateString) => {
+      const date = new Date(dateString);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (date.toDateString() === today.toDateString()) return 'Today';
+      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      
+      return date.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+    };
+    
+    const getCategoryById = (id) => {
+      return [...CATEGORIES, ...INCOME_CATEGORIES].find(c => c.id === id) || CATEGORIES[11];
+    };
+    
+    const getCurrentMonthTransactions = () => {
+      const now = new Date();
+      return state.transactions.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    };
+    
+    const getMonthlyStats = () => {
+      const monthTx = getCurrentMonthTransactions();
+      const income = monthTx.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+      const expenses = Math.abs(monthTx.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
+      return { income, expenses, net: income - expenses };
+    };
+    
+    const getCurrentMonthName = () => {
+      return new Date().toLocaleDateString('en-SG', { month: 'long', year: 'numeric' });
+    };
+    
+    // ============================================
+    // DATABASE OPERATIONS
+    // ============================================
+    
+    const syncToSupabase = async () => {
+      if (!supabaseClient || !state.isOnline) return;
+      
+      for (const tx of state.pendingSync) {
+        try {
+          const { error } = await supabaseClient.from('transactions').upsert(tx);
+          if (!error) {
+            state.pendingSync = state.pendingSync.filter(t => t.id !== tx.id);
+          }
+        } catch (err) {
+          console.error('Sync error:', err);
+        }
+      }
+      
+      localStorage.setItem('pendingSync', JSON.stringify(state.pendingSync));
+    };
+    
+    const loadFromSupabase = async () => {
+      if (!supabaseClient) return;
+      
+      try {
+        const { data, error } = await supabaseClient
+          .from('transactions')
+          .select('*')
+          .order('date', { ascending: false })
+          .limit(500);
+        
+        if (!error && data) {
+          state.transactions = data;
+          localStorage.setItem('transactions', JSON.stringify(data));
+        }
+      } catch (err) {
+        console.error('Load error:', err);
+      }
+    };
+    
+    const addTransaction = async (tx) => {
+      const newTx = {
+        id: crypto.randomUUID(),
+        ...tx,
+        created_at: new Date().toISOString(),
+      };
+      
+      state.transactions.unshift(newTx);
+      localStorage.setItem('transactions', JSON.stringify(state.transactions));
+      
+      if (supabaseClient && state.isOnline) {
+        try {
+          const { error } = await supabaseClient.from('transactions').insert(newTx);
+          if (error) throw error;
+        } catch (err) {
+          state.pendingSync.push(newTx);
+          localStorage.setItem('pendingSync', JSON.stringify(state.pendingSync));
+        }
+      } else {
+        state.pendingSync.push(newTx);
+        localStorage.setItem('pendingSync', JSON.stringify(state.pendingSync));
+      }
+      
+      render();
+      showToast('Transaction added!', 'success');
+    };
+    
+    const deleteTransaction = async (id) => {
+      state.transactions = state.transactions.filter(t => t.id !== id);
+      localStorage.setItem('transactions', JSON.stringify(state.transactions));
+      
+      if (supabaseClient && state.isOnline) {
+        await supabaseClient.from('transactions').delete().eq('id', id);
+      }
+      
+      render();
+    };
+    
+    // ============================================
+    // UI COMPONENTS
+    // ============================================
+    
+    const showToast = (message, type = 'success') => {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    };
+    
+    const renderSetupScreen = () => {
+      return `
+        <div class="setup-screen">
+          <div class="ambient-glow glow-1"></div>
+          <div class="ambient-glow glow-2"></div>
+          <div class="setup-icon">🇸🇬</div>
+          <h1 class="setup-title">SG Expense Tracker</h1>
+          <p class="setup-desc">Track your daily expenses with ease. Connect to Supabase for cloud sync, or use offline mode.</p>
+          
+          <input 
+            type="url" 
+            class="form-input setup-input" 
+            id="setup-url"
+            placeholder="Supabase URL"
+            value="${localStorage.getItem('supabase_url') || ''}"
+          >
+          <input 
+            type="text" 
+            class="form-input setup-input" 
+            id="setup-key"
+            placeholder="Supabase Anon Key"
+            value="${localStorage.getItem('supabase_key') || ''}"
+          >
+          
+          <button class="setup-btn" onclick="handleSetup()">Connect & Start</button>
+          <span class="setup-skip" onclick="handleSkipSetup()">Skip, use offline mode</span>
+        </div>
+      `;
+    };
+    
+    const renderHeader = () => {
+      const today = new Date().toLocaleDateString('en-SG', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long' 
+      });
+      
+      return `
+        <header class="header">
+          <div class="header-top">
+            <div>
+              <h1>SG Tracker</h1>
+              <p class="header-date">${today}</p>
+            </div>
+            <div class="sync-status">
+              <span class="sync-dot ${state.isOnline ? '' : 'offline'}"></span>
+              ${state.isOnline ? (supabaseClient ? 'Synced' : 'Local') : 'Offline'}
+            </div>
+          </div>
+        </header>
+      `;
+    };
+    
+    const renderSummary = () => {
+      const stats = getMonthlyStats();
+      const remaining = state.monthlyBudget - stats.expenses;
+      
+      return `
+        <div class="summary-grid fade-in stagger-1">
+          <div class="summary-card large">
+            <p class="summary-label">Available to Spend</p>
+            <p class="summary-value large ${remaining >= 0 ? 'positive' : 'negative'}">
+              ${formatMoney(Math.max(0, remaining))}
+            </p>
+            <p class="summary-subtext">${remaining < 0 ? 'Over budget by ' + formatMoney(Math.abs(remaining)) : 'of ' + formatMoney(state.monthlyBudget) + ' budget'}</p>
+          </div>
+          <div class="summary-card">
+            <p class="summary-label">Spent</p>
+            <p class="summary-value negative">${formatMoney(stats.expenses)}</p>
+          </div>
+          <div class="summary-card">
+            <p class="summary-label">Income</p>
+            <p class="summary-value positive">${formatMoney(stats.income)}</p>
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderQuickAdd = () => {
+      return `
+        <div class="quick-add-section fade-in stagger-2">
+          <p class="section-title">⚡ Quick Add</p>
+          <div class="quick-add-grid">
+            ${QUICK_ADDS.map(q => `
+              <button class="quick-add-btn" onclick="handleQuickAdd(${q.amount}, ${q.category_id}, '${q.label}')">
+                <span class="icon">${q.icon}</span>
+                <span class="label">${q.label}</span>
+                <span class="amount">${formatMoney(q.amount)}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderBudget = () => {
+      const stats = getMonthlyStats();
+      const budgetUsed = Math.min((stats.expenses / state.monthlyBudget) * 100, 100);
+      const budgetColor = budgetUsed > 90 ? 'var(--accent-red)' : budgetUsed > 70 ? 'var(--accent-orange)' : 'var(--accent-blue)';
+      
+      return `
+        <div class="budget-section fade-in stagger-3">
+          <p class="section-title">📊 Monthly Budget</p>
+          <div class="budget-card">
+            <div class="budget-header">
+              <span class="budget-title">${getCurrentMonthName()}</span>
+              <span class="budget-amount">${formatMoney(stats.expenses)} / ${formatMoney(state.monthlyBudget)}</span>
+            </div>
+            <div class="budget-bar">
+              <div class="budget-fill" style="width: ${budgetUsed}%; background: ${budgetColor}"></div>
+            </div>
+            <div class="budget-labels">
+              <span>${Math.round(budgetUsed)}% used</span>
+              <span>${formatMoney(Math.max(0, state.monthlyBudget - stats.expenses))} left</span>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderTransactions = () => {
+      const recentTx = state.transactions.slice(0, 10);
+      
+      if (recentTx.length === 0) {
+        return `
+          <div class="transactions-section fade-in stagger-4">
+            <p class="section-title">📝 Recent Transactions</p>
+            <div class="empty-state">
+              <div class="icon">📭</div>
+              <p>No transactions yet</p>
+              <p style="font-size: 13px; margin-top: 8px;">Tap + to add your first expense</p>
+            </div>
+          </div>
+        `;
+      }
+      
+      return `
+        <div class="transactions-section fade-in stagger-4">
+          <p class="section-title">📝 Recent Transactions</p>
+          <div class="transaction-list">
+            ${recentTx.map(tx => {
+              const cat = getCategoryById(tx.category_id);
+              const isExpense = tx.amount < 0;
+              return `
+                <div class="transaction-item" onclick="handleTransactionClick('${tx.id}')">
+                  <div class="transaction-icon" style="background: ${cat.color}20">
+                    ${cat.icon}
+                  </div>
+                  <div class="transaction-details">
+                    <p class="transaction-desc">${tx.description || cat.name}</p>
+                    <p class="transaction-meta">
+                      ${formatDate(tx.date)} • ${cat.name}
+                    </p>
+                  </div>
+                  <span class="transaction-amount ${isExpense ? 'expense' : 'income'}">
+                    ${isExpense ? '-' : '+'}${formatMoney(Math.abs(tx.amount))}
+                  </span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderBottomNav = () => {
+      return `
+        <nav class="bottom-nav">
+          <button class="nav-btn ${state.activeTab === 'home' ? 'active' : ''}" onclick="setTab('home')">
+            <span class="icon">🏠</span>
+            <span class="label">Home</span>
+          </button>
+          <button class="nav-btn ${state.activeTab === 'stats' ? 'active' : ''}" onclick="setTab('stats')">
+            <span class="icon">📊</span>
+            <span class="label">Stats</span>
+          </button>
+          <button class="nav-btn add-btn" onclick="openModal()">
+            <span class="icon">+</span>
+          </button>
+          <button class="nav-btn ${state.activeTab === 'history' ? 'active' : ''}" onclick="setTab('history')">
+            <span class="icon">📋</span>
+            <span class="label">History</span>
+          </button>
+          <button class="nav-btn ${state.activeTab === 'settings' ? 'active' : ''}" onclick="setTab('settings')">
+            <span class="icon">⚙️</span>
+            <span class="label">Settings</span>
+          </button>
+        </nav>
+      `;
+    };
+    
+    const renderModal = () => {
+      const categories = state.formData.isExpense ? CATEGORIES : INCOME_CATEGORIES;
+      
+      return `
+        <div class="modal-overlay ${state.showModal ? 'active' : ''}" onclick="handleOverlayClick(event)">
+          <div class="modal">
+            <div class="modal-handle"></div>
+            <h2 class="modal-title">Add Transaction</h2>
+            
+            <div class="type-toggle">
+              <button class="type-btn expense ${state.formData.isExpense ? 'active' : ''}" onclick="setTransactionType(true)">
+                Expense
+              </button>
+              <button class="type-btn income ${!state.formData.isExpense ? 'active' : ''}" onclick="setTransactionType(false)">
+                Income
+              </button>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Amount (SGD)</label>
+              <input 
+                type="number" 
+                class="form-input amount-input" 
+                id="amount-input"
+                placeholder="0.00"
+                step="0.01"
+                inputmode="decimal"
+                value="${state.formData.amount}"
+                oninput="updateFormData('amount', this.value)"
+              >
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Category</label>
+              <div class="category-grid">
+                ${categories.slice(0, 8).map(cat => `
+                  <button 
+                    class="category-btn ${state.formData.category_id === cat.id ? 'selected' : ''}"
+                    onclick="updateFormData('category_id', ${cat.id})"
+                  >
+                    <span class="icon">${cat.icon}</span>
+                    <span class="label">${cat.name}</span>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Description (optional)</label>
+              <input 
+                type="text" 
+                class="form-input" 
+                placeholder="e.g., Chicken rice at Maxwell"
+                value="${state.formData.description}"
+                oninput="updateFormData('description', this.value)"
+              >
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input 
+                type="date" 
+                class="form-input"
+                value="${state.formData.date}"
+                oninput="updateFormData('date', this.value)"
+              >
+            </div>
+            
+            <button class="submit-btn" onclick="handleSubmit()" ${!state.formData.amount ? 'disabled' : ''}>
+              Add ${state.formData.isExpense ? 'Expense' : 'Income'}
+            </button>
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderStatsTab = () => {
+      const stats = getMonthlyStats();
+      const monthTx = getCurrentMonthTransactions();
+      
+      const byCategory = {};
+      monthTx.filter(t => t.amount < 0).forEach(t => {
+        const cat = getCategoryById(t.category_id);
+        if (!byCategory[cat.id]) {
+          byCategory[cat.id] = { ...cat, total: 0, count: 0 };
+        }
+        byCategory[cat.id].total += Math.abs(t.amount);
+        byCategory[cat.id].count++;
+      });
+      
+      const sorted = Object.values(byCategory).sort((a, b) => b.total - a.total);
+      
+      return `
+        <div class="main-content">
+          <div class="summary-grid fade-in">
+            <div class="summary-card">
+              <p class="summary-label">Total Spent</p>
+              <p class="summary-value negative">${formatMoney(stats.expenses)}</p>
+            </div>
+            <div class="summary-card">
+              <p class="summary-label">Transactions</p>
+              <p class="summary-value">${monthTx.length}</p>
+            </div>
+          </div>
+          
+          <div class="transactions-section fade-in stagger-2">
+            <p class="section-title">💸 Spending by Category</p>
+            <div class="transaction-list">
+              ${sorted.length === 0 ? `
+                <div class="empty-state">
+                  <p>No spending data yet</p>
+                </div>
+              ` : sorted.map(cat => `
+                <div class="transaction-item">
+                  <div class="transaction-icon" style="background: ${cat.color}20">
+                    ${cat.icon}
+                  </div>
+                  <div class="transaction-details">
+                    <p class="transaction-desc">${cat.name}</p>
+                    <p class="transaction-meta">${cat.count} transaction${cat.count > 1 ? 's' : ''}</p>
+                  </div>
+                  <span class="transaction-amount expense">${formatMoney(cat.total)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderHistoryTab = () => {
+      return `
+        <div class="main-content">
+          <div class="transactions-section fade-in">
+            <p class="section-title">📋 All Transactions</p>
+            <div class="transaction-list">
+              ${state.transactions.length === 0 ? `
+                <div class="empty-state">
+                  <div class="icon">📭</div>
+                  <p>No transactions yet</p>
+                </div>
+              ` : state.transactions.map(tx => {
+                const cat = getCategoryById(tx.category_id);
+                const isExpense = tx.amount < 0;
+                return `
+                  <div class="transaction-item" onclick="handleTransactionClick('${tx.id}')">
+                    <div class="transaction-icon" style="background: ${cat.color}20">
+                      ${cat.icon}
+                    </div>
+                    <div class="transaction-details">
+                      <p class="transaction-desc">${tx.description || cat.name}</p>
+                      <p class="transaction-meta">${formatDate(tx.date)} • ${cat.name}</p>
+                    </div>
+                    <span class="transaction-amount ${isExpense ? 'expense' : 'income'}">
+                      ${isExpense ? '-' : '+'}${formatMoney(Math.abs(tx.amount))}
+                    </span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderSettingsTab = () => {
+      return `
+        <div class="main-content">
+          <div class="transactions-section fade-in">
+            <p class="section-title">⚙️ Settings</p>
+            
+            <div class="budget-card" style="margin-bottom: 16px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Monthly Budget (SGD)</label>
+                <input 
+                  type="number" 
+                  class="form-input"
+                  value="${state.monthlyBudget}"
+                  oninput="updateBudget(this.value)"
+                >
+              </div>
+            </div>
+            
+            <div class="budget-card" style="margin-bottom: 16px;">
+              <p class="budget-title" style="margin-bottom: 12px;">Cloud Sync</p>
+              <p class="transaction-meta" style="margin-bottom: 12px;">
+                ${supabaseClient ? '✅ Connected to Supabase' : '❌ Not connected'}
+              </p>
+              <button class="submit-btn" onclick="resetSetup()" style="background: var(--bg-primary);">
+                ${supabaseClient ? 'Reconfigure' : 'Setup Cloud Sync'}
+              </button>
+            </div>
+            
+            <div class="budget-card" style="margin-bottom: 16px;">
+              <p class="budget-title" style="margin-bottom: 12px;">Data</p>
+              <p class="transaction-meta" style="margin-bottom: 12px;">
+                ${state.transactions.length} transactions stored locally
+              </p>
+              <button class="submit-btn" onclick="exportData()" style="background: var(--accent-green); margin-bottom: 8px;">
+                Export as CSV
+              </button>
+              <button class="submit-btn" onclick="clearData()" style="background: var(--accent-red);">
+                Clear All Data
+              </button>
+            </div>
+            
+            <div class="budget-card">
+              <p class="budget-title" style="margin-bottom: 8px;">About</p>
+              <p class="transaction-meta">SG Expense Tracker v1.0</p>
+              <p class="transaction-meta">Made for daily Singapore expenses</p>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+    
+    const renderHomeTab = () => {
+      return `
+        <div class="main-content">
+          ${renderSummary()}
+          ${renderQuickAdd()}
+          ${renderBudget()}
+          ${renderTransactions()}
+        </div>
+      `;
+    };
+    
+    // ============================================
+    // MAIN RENDER
+    // ============================================
+    
+    const render = () => {
+      const app = document.getElementById('app');
+      
+      if (!state.isSetup) {
+        app.innerHTML = renderSetupScreen();
+        return;
+      }
+      
+      let mainContent;
+      switch (state.activeTab) {
+        case 'stats':
+          mainContent = renderStatsTab();
+          break;
+        case 'history':
+          mainContent = renderHistoryTab();
+          break;
+        case 'settings':
+          mainContent = renderSettingsTab();
+          break;
+        default:
+          mainContent = renderHomeTab();
+      }
+      
+      app.innerHTML = `
+        <div class="ambient-glow glow-1"></div>
+        <div class="ambient-glow glow-2"></div>
+        ${renderHeader()}
+        ${mainContent}
+        ${renderBottomNav()}
+        ${renderModal()}
+        <div id="toast" class="toast"></div>
+      `;
+    };
+    
+    // ============================================
+    // EVENT HANDLERS
+    // ============================================
+    
+    window.handleSetup = () => {
+      const url = document.getElementById('setup-url').value.trim();
+      const key = document.getElementById('setup-key').value.trim();
+      
+      if (url && key) {
+        localStorage.setItem('supabase_url', url);
+        localStorage.setItem('supabase_key', key);
+        supabaseClient = window.supabase.createClient(url, key);
+        state.isSetup = true;
+        loadFromSupabase();
+      }
+      
+      render();
+    };
+    
+    window.handleSkipSetup = () => {
+      localStorage.setItem('skipSetup', 'true');
+      state.isSetup = true;
+      render();
+    };
+    
+    window.resetSetup = () => {
+      localStorage.removeItem('skipSetup');
+      localStorage.removeItem('supabase_url');
+      localStorage.removeItem('supabase_key');
+      supabaseClient = null;
+      state.isSetup = false;
+      render();
+    };
+    
+    window.setTab = (tab) => {
+      state.activeTab = tab;
+      render();
+    };
+    
+    window.openModal = () => {
+      state.showModal = true;
+      state.formData = {
+        amount: '',
+        description: '',
+        category_id: state.formData.isExpense ? 1 : 100,
+        isExpense: true,
+        date: new Date().toISOString().split('T')[0],
+      };
+      render();
+      
+      setTimeout(() => {
+        document.getElementById('amount-input')?.focus();
+      }, 300);
+    };
+    
+    window.closeModal = () => {
+      state.showModal = false;
+      render();
+    };
+    
+    window.handleOverlayClick = (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        closeModal();
+      }
+    };
+    
+    window.setTransactionType = (isExpense) => {
+      state.formData.isExpense = isExpense;
+      state.formData.category_id = isExpense ? 1 : 100;
+      render();
+    };
+    
+    window.updateFormData = (field, value) => {
+      state.formData[field] = field === 'category_id' ? parseInt(value) : value;
+      if (field === 'category_id') render();
+    };
+    
+    window.handleSubmit = async () => {
+      if (!state.formData.amount) return;
+      
+      const amount = parseFloat(state.formData.amount);
+      const finalAmount = state.formData.isExpense ? -Math.abs(amount) : Math.abs(amount);
+      
+      await addTransaction({
+        amount: finalAmount,
+        description: state.formData.description,
+        category_id: state.formData.category_id,
+        date: state.formData.date,
+      });
+      
+      closeModal();
+    };
+    
+    window.handleQuickAdd = async (amount, category_id, label) => {
+      await addTransaction({
+        amount: -amount,
+        description: label,
+        category_id: category_id,
+        date: new Date().toISOString().split('T')[0],
+      });
+    };
+    
+    window.handleTransactionClick = (id) => {
+      if (confirm('Delete this transaction?')) {
+        deleteTransaction(id);
+      }
+    };
+    
+    window.updateBudget = (value) => {
+      const budget = parseFloat(value) || MONTHLY_BUDGET;
+      state.monthlyBudget = budget;
+      localStorage.setItem('monthlyBudget', budget);
+      render();
+    };
+    
+    window.exportData = () => {
+      const headers = ['Date', 'Description', 'Category', 'Amount'];
+      const rows = state.transactions.map(t => {
+        const cat = getCategoryById(t.category_id);
+        return [t.date, t.description || cat.name, cat.name, t.amount];
+      });
+      
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expenses_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      
+      showToast('Exported successfully!');
+    };
+    
+    window.clearData = () => {
+      if (confirm('Are you sure? This will delete all your transactions.')) {
+        state.transactions = [];
+        localStorage.setItem('transactions', '[]');
+        render();
+        showToast('Data cleared');
+      }
+    };
+    
+    // Online/offline handling
+    window.addEventListener('online', () => {
+      state.isOnline = true;
+      syncToSupabase();
+      render();
+    });
+    
+    window.addEventListener('offline', () => {
+      state.isOnline = false;
+      render();
+    });
+    
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => {
+        console.log('SW registration failed:', err);
+      });
+    }
+    
+    // Initial render
+    render();
+    
+    // Try to sync on load
+    if (supabaseClient && state.isOnline) {
+      loadFromSupabase();
+      syncToSupabase();
+    }
+  </script>
+</body>
+</html>
