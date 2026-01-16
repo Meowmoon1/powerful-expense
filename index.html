@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SG Tracker">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="manifest.json">
+  <title>SG Expense Tracker Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    body { background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%); }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body class="min-h-screen text-white">
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // Data
+    const DEFAULT_CATEGORIES = [
+      { id: 1, name: 'Hawker', icon: '🍜', color: '#f97316', budget: 400 },
+      { id: 2, name: 'Transport', icon: '🚇', color: '#3b82f6', budget: 150 },
+      { id: 3, name: 'Groceries', icon: '🛒', color: '#84cc16', budget: 300 },
+      { id: 4, name: 'Shopping', icon: '🛍️', color: '#ec4899', budget: 200 },
+      { id: 5, name: 'Bills', icon: '📄', color: '#06b6d4', budget: 400 },
+      { id: 6, name: 'Kopi', icon: '☕', color: '#8b5cf6', budget: 80 },
+      { id: 7, name: 'Entertainment', icon: '🎬', color: '#f43f5e', budget: 150 },
+      { id: 8, name: 'Grab', icon: '🚕', color: '#eab308', budget: 200 },
+    ];
+
+    const INCOME_CATS = [
+      { id: 100, name: 'Salary', icon: '💰', color: '#10b981' },
+      { id: 101, name: 'Freelance', icon: '💼', color: '#3b82f6' },
+      { id: 102, name: 'Angbao', icon: '🧧', color: '#ef4444' },
+    ];
+
+    const DEFAULT_ACCOUNTS = [
+      { id: 1, name: 'DBS Savings', balance: 15420.50, type: 'Savings', icon: '🏦' },
+      { id: 2, name: 'MariBank', balance: 5000.00, type: 'Digital Bank', icon: '📱' },
+      { id: 3, name: 'CitiBank', balance: 8750.00, type: 'Savings', icon: '🏦' },
+      { id: 4, name: 'Credit Card', balance: -1890.00, type: 'Credit', icon: '💳' },
+      { id: 5, name: 'CPF', balance: 45000.00, type: 'Retirement', icon: '🏛️' },
+      { id: 6, name: 'IBKR', balance: 12500.00, type: 'Investment', icon: '📈' },
+    ];
+    
+    const DEFAULT_GOALS = [
+      { id: 1, name: 'Emergency Fund', target: 20000, current: 12500, icon: '🛡️', color: '#3b82f6' },
+      { id: 2, name: 'Japan Trip', target: 5000, current: 2800, icon: '✈️', color: '#f97316' },
+      { id: 3, name: 'New MacBook', target: 2500, current: 1200, icon: '💻', color: '#8b5cf6' },
+    ];
+
+    
+
+    const SAMPLE_TX = [
+      { id: 1, amount: -5.00, desc: 'Chicken rice at Maxwell', cat: 1, date: '2025-01-17', recurring: false },
+      { id: 2, amount: -2.10, desc: 'MRT to Raffles Place', cat: 2, date: '2025-01-17', recurring: false },
+      { id: 3, amount: -15.90, desc: 'Netflix', cat: 7, date: '2025-01-15', recurring: true },
+      { id: 4, amount: -89.00, desc: 'SP Services', cat: 5, date: '2025-01-15', recurring: true },
+      { id: 5, amount: 8500.00, desc: 'Salary', cat: 100, date: '2025-01-01', recurring: true },
+      { id: 6, amount: -32.00, desc: 'Lunch at MBS', cat: 1, date: '2025-01-16', recurring: false },
+      { id: 7, amount: -1.80, desc: 'Kopi-O', cat: 6, date: '2025-01-17', recurring: false },
+      { id: 8, amount: -156.00, desc: 'Singtel Bill', cat: 5, date: '2025-01-10', recurring: true },
+      { id: 9, amount: -45.60, desc: 'NTUC FairPrice', cat: 3, date: '2025-01-14', recurring: false },
+      { id: 10, amount: -22.00, desc: 'Golden Village', cat: 7, date: '2025-01-12', recurring: false },
+    ];
+
+    const fmt = (n) => new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD' }).format(Math.abs(n));
+    const fmtDate = (d) => {
+      const date = new Date(d), today = new Date();
+      if (date.toDateString() === today.toDateString()) return 'Today';
+      const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+      if (date.toDateString() === yest.toDateString()) return 'Yesterday';
+      return date.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+    };
+
+    // Sparkline
+    const Sparkline = ({ data, color = '#3b82f6' }) => {
+      const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
+      const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - ((v - min) / range) * 80 - 10}`).join(' ');
+      return (
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-10">
+          <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    };
+
+    // Donut
+    const Donut = ({ data }) => {
+      const total = data.reduce((s, d) => s + d.value, 0);
+      if (!total) return <svg viewBox="0 0 100 100" className="w-28 h-28"><circle cx="50" cy="50" r="40" fill="none" stroke="#334155" strokeWidth="15" /></svg>;
+      let angle = -90;
+      return (
+        <svg viewBox="0 0 100 100" className="w-28 h-28">
+          {data.slice(0, 5).map((d, i) => {
+            const a = (d.value / total) * 360, start = angle; angle += a;
+            const x1 = 50 + 40 * Math.cos(start * Math.PI / 180), y1 = 50 + 40 * Math.sin(start * Math.PI / 180);
+            const x2 = 50 + 40 * Math.cos(angle * Math.PI / 180), y2 = 50 + 40 * Math.sin(angle * Math.PI / 180);
+            return <path key={i} d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${a > 180 ? 1 : 0} 1 ${x2} ${y2} Z`} fill={d.color} />;
+          })}
+          <circle cx="50" cy="50" r="24" fill="#1e293b" />
+        </svg>
+      );
+    };
+
+    // Progress
+    const Progress = ({ value, max, color }) => (
+      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min((value / max) * 100, 100)}%`, background: color }} />
+      </div>
+    );
+
+    // Tab
+    const Tab = ({ active, onClick, icon, label }) => (
+      <button onClick={onClick} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:text-white'}`}>
+        <span>{icon}</span><span className="hidden sm:inline">{label}</span>
+      </button>
+    );
+
+    // Toast
+    const Toast = ({ message, show }) => (
+      <div className={`fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 border border-emerald-500 px-4 py-2 rounded-xl text-sm z-50 transition-all duration-300 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+        ✓ {message}
+      </div>
+    );
+
+    function App() {
+      const [tab, setTab] = useState('dashboard');
+      const [transactions, setTransactions] = useState(() => {
+        const saved = localStorage.getItem('sg_transactions');
+        return saved ? JSON.parse(saved) : SAMPLE_TX;
+      });
+      const [showModal, setShowModal] = useState(false);
+      const [toast, setToast] = useState({ show: false, message: '' });
+      const [form, setForm] = useState({ amount: '', desc: '', cat: 1, isExpense: true, date: new Date().toISOString().split('T')[0] });
+      const [accounts, setAccounts] = useState(() => {
+        const saved = localStorage.getItem('sg_accounts');
+        return saved ? JSON.parse(saved) : DEFAULT_ACCOUNTS;
+      });
+      const [goals, setGoals] = useState(() => {
+        const saved = localStorage.getItem('sg_goals');
+        return saved ? JSON.parse(saved) : DEFAULT_GOALS;
+      });
+      const [editModal, setEditModal] = useState({ show: false, type: null, item: null });
+      const [categories, setCategories] = useState(() => {
+        const saved = localStorage.getItem('sg_categories');
+        return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+      });
+
+      useEffect(() => {
+        localStorage.setItem('sg_transactions', JSON.stringify(transactions));
+      }, [transactions]);
+      
+      useEffect(() => {
+        localStorage.setItem('sg_accounts', JSON.stringify(accounts));
+      }, [accounts]);
+      
+      useEffect(() => {
+        localStorage.setItem('sg_goals', JSON.stringify(goals));
+      }, [goals]);
+      
+      useEffect(() => {
+        localStorage.setItem('sg_categories', JSON.stringify(categories));
+      }, [categories]);
+
+      const getCat = (id) => [...categories, ...INCOME_CATS].find(c => c.id === id) || categories[0];
+
+      const showToast = (msg) => {
+        setToast({ show: true, message: msg });
+        setTimeout(() => setToast({ show: false, message: '' }), 2000);
+      };
+
+      const stats = useMemo(() => {
+        const now = new Date();
+        const monthTx = transactions.filter(t => { const d = new Date(t.date); return d.getMonth() === now.getMonth(); });
+        return {
+          income: monthTx.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0),
+          expenses: Math.abs(monthTx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)),
+        };
+      }, [transactions]);
+
+      const netWorth = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts]);
+
+      const catSpending = useMemo(() => {
+        const now = new Date();
+        const monthTx = transactions.filter(t => { const d = new Date(t.date); return d.getMonth() === now.getMonth() && t.amount < 0; });
+        return categories.map(c => ({ ...c, spent: Math.abs(monthTx.filter(t => t.cat === c.id).reduce((s, t) => s + t.amount, 0)) }))
+          .filter(c => c.spent > 0).sort((a, b) => b.spent - a.spent);
+      }, [transactions, categories]);
+
+      const recurring = transactions.filter(t => t.recurring && t.amount < 0);
+      const monthlyRecurring = Math.abs(recurring.reduce((s, t) => s + t.amount, 0));
+
+      const addTx = () => {
+        if (!form.amount) return;
+        const tx = { id: Date.now(), amount: form.isExpense ? -Math.abs(+form.amount) : Math.abs(+form.amount), desc: form.desc, cat: form.cat, date: form.date, recurring: false };
+        setTransactions([tx, ...transactions]);
+        setShowModal(false);
+        setForm({ amount: '', desc: '', cat: 1, isExpense: true, date: new Date().toISOString().split('T')[0] });
+        showToast('Transaction added!');
+      };
+
+      const quickAdd = (amt, cat, desc) => {
+        setTransactions([{ id: Date.now(), amount: -amt, desc, cat, date: new Date().toISOString().split('T')[0], recurring: false }, ...transactions]);
+        showToast(`Added ${desc}!`);
+      };
+
+      const delTx = (id) => { if (confirm('Delete this transaction?')) setTransactions(transactions.filter(t => t.id !== id)); };
+
+      const updateAccount = (id, newBalance) => {
+        setAccounts(accounts.map(a => a.id === id ? { ...a, balance: parseFloat(newBalance) || 0 } : a));
+        setEditModal({ show: false, type: null, item: null });
+        showToast('Account updated!');
+      };
+
+      const updateGoal = (id, field, value) => {
+        setGoals(goals.map(g => g.id === id ? { ...g, [field]: parseFloat(value) || 0 } : g));
+        setEditModal({ show: false, type: null, item: null });
+        showToast('Goal updated!');
+      };
+
+      const openEditAccount = (account) => {
+        setEditModal({ show: true, type: 'account', item: { ...account } });
+      };
+
+      const openEditGoal = (goal) => {
+        setEditModal({ show: true, type: 'goal', item: { ...goal } });
+      };
+
+      const openEditBudget = (category) => {
+        setEditModal({ show: true, type: 'budget', item: { ...category } });
+      };
+
+      const updateBudget = (id, newBudget) => {
+        setCategories(categories.map(c => c.id === id ? { ...c, budget: parseFloat(newBudget) || 0 } : c));
+        setEditModal({ show: false, type: null, item: null });
+        showToast('Budget updated!');
+      };
+
+      return (
+        <div className="min-h-screen">
+          <Toast {...toast} />
+          
+          {/* Ambient Glow */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-32 -right-32 w-64 h-64 bg-blue-500/15 rounded-full blur-3xl" />
+            <div className="absolute bottom-32 -left-32 w-64 h-64 bg-purple-500/15 rounded-full blur-3xl" />
+          </div>
+
+          <div className="relative max-w-lg mx-auto px-4 py-4 pb-20">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">SG Tracker Pro</h1>
+                <p className="text-xs text-slate-500">{new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+              </div>
+              <button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl font-semibold text-sm shadow-lg shadow-blue-600/30 transition-all active:scale-95">
+                + Add
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 overflow-x-auto pb-1 -mx-4 px-4">
+              <Tab active={tab === 'dashboard'} onClick={() => setTab('dashboard')} icon="📊" label="Dashboard" />
+              <Tab active={tab === 'transactions'} onClick={() => setTab('transactions')} icon="💳" label="Transactions" />
+              <Tab active={tab === 'budgets'} onClick={() => setTab('budgets')} icon="🎯" label="Budgets" />
+              <Tab active={tab === 'goals'} onClick={() => setTab('goals')} icon="🏆" label="Goals" />
+              <Tab active={tab === 'recurring'} onClick={() => setTab('recurring')} icon="🔄" label="Recurring" />
+            </div>
+
+            {/* Dashboard */}
+            {tab === 'dashboard' && (
+              <div className="space-y-4">
+                {/* Net Worth */}
+                <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-2xl p-5 border border-blue-500/20">
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">Net Worth</p>
+                  <p className="text-3xl font-bold font-mono mt-1">{fmt(netWorth)}</p>
+                  <div className="mt-3"><Sparkline data={[58000, 59200, 60100, 59800, 61000, 61500, netWorth]} /></div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Income</p>
+                    <p className="text-lg font-bold font-mono text-emerald-400">{fmt(stats.income)}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Expenses</p>
+                    <p className="text-lg font-bold font-mono text-red-400">{fmt(stats.expenses)}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Saved</p>
+                    <p className={`text-lg font-bold font-mono ${stats.income - stats.expenses >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(stats.income - stats.expenses)}</p>
+                  </div>
+                </div>
+
+                {/* Quick Add */}
+                <div>
+                  <p className="text-sm font-semibold text-slate-400 mb-3">⚡ Quick Add</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[{ icon: '🍜', label: 'Hawker', amt: 5, cat: 1 }, { icon: '🚇', label: 'MRT', amt: 2, cat: 2 }, { icon: '☕', label: 'Kopi', amt: 1.5, cat: 6 }, { icon: '🚕', label: 'Grab', amt: 15, cat: 8 }].map(q => (
+                      <button key={q.label} onClick={() => quickAdd(q.amt, q.cat, q.label)} className="flex flex-col items-center gap-1 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl hover:bg-blue-600/20 hover:border-blue-500/50 transition-all active:scale-95">
+                        <span className="text-2xl">{q.icon}</span>
+                        <span className="text-xs text-slate-400">{q.label}</span>
+                        <span className="text-xs font-mono text-slate-500">{fmt(q.amt)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Spending by Category */}
+                <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                  <p className="text-sm font-semibold text-slate-400 mb-4">📊 Spending by Category</p>
+                  <div className="flex items-center gap-5">
+                    <Donut data={catSpending.map(c => ({ value: c.spent, color: c.color }))} />
+                    <div className="flex-1 space-y-2">
+                      {catSpending.slice(0, 4).map(c => (
+                        <div key={c.id} className="flex items-center gap-2 text-xs">
+                          <span className="w-2.5 h-2.5 rounded" style={{ background: c.color }} />
+                          <span className="text-slate-400">{c.icon} {c.name}</span>
+                          <span className="ml-auto font-mono text-slate-500">{fmt(c.spent)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Accounts */}
+                <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                  <p className="text-sm font-semibold text-slate-400 mb-3">🏦 Accounts <span className="text-xs font-normal">(tap to edit)</span></p>
+                  <div className="space-y-2">
+                    {accounts.map(a => (
+                      <div key={a.id} onClick={() => openEditAccount(a)} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl cursor-pointer hover:bg-slate-800/50 transition-all active:scale-[0.98]">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{a.icon}</span>
+                          <div><p className="text-sm font-medium">{a.name}</p><p className="text-xs text-slate-500">{a.type}</p></div>
+                        </div>
+                        <span className={`font-mono font-semibold ${a.balance < 0 ? 'text-red-400' : ''}`}>{a.balance < 0 && '-'}{fmt(a.balance)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recent Transactions */}
+                <div>
+                  <p className="text-sm font-semibold text-slate-400 mb-3">📝 Recent Transactions</p>
+                  {transactions.slice(0, 5).map(tx => {
+                    const c = getCat(tx.cat);
+                    return (
+                      <div key={tx.id} onClick={() => delTx(tx.id)} className="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl mb-2 cursor-pointer hover:bg-slate-700/30 transition-all">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${c.color}20` }}>{c.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{tx.desc || c.name}{tx.recurring && <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">Recurring</span>}</p>
+                          <p className="text-xs text-slate-500">{fmtDate(tx.date)} • {c.name}</p>
+                        </div>
+                        <span className={`font-mono font-semibold ${tx.amount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{tx.amount < 0 ? '-' : '+'}{fmt(tx.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Transactions Tab */}
+            {tab === 'transactions' && (
+              <div>
+                <p className="text-sm font-semibold text-slate-400 mb-3">💳 All Transactions</p>
+                {transactions.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <p className="text-4xl mb-2">📭</p>
+                    <p>No transactions yet</p>
+                  </div>
+                ) : transactions.map(tx => {
+                  const c = getCat(tx.cat);
+                  return (
+                    <div key={tx.id} onClick={() => delTx(tx.id)} className="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl mb-2 cursor-pointer">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${c.color}20` }}>{c.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{tx.desc || c.name}{tx.recurring && <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">Recurring</span>}</p>
+                        <p className="text-xs text-slate-500">{fmtDate(tx.date)} • {c.name}</p>
+                      </div>
+                      <span className={`font-mono font-semibold ${tx.amount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{tx.amount < 0 ? '-' : '+'}{fmt(tx.amount)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Budgets Tab */}
+            {tab === 'budgets' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Total Budget</p>
+                    <p className="text-xl font-bold font-mono">{fmt(categories.reduce((s, c) => s + c.budget, 0))}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Spent</p>
+                    <p className="text-xl font-bold font-mono text-red-400">{fmt(stats.expenses)}</p>
+                  </div>
+                </div>
+                <div className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50">
+                  <p className="text-sm font-semibold text-slate-400 mb-4">🎯 Category Budgets <span className="text-xs font-normal">(tap to edit)</span></p>
+                  {categories.filter(c => c.budget >= 0).map(c => {
+                    const spent = catSpending.find(cs => cs.id === c.id)?.spent || 0;
+                    const pct = c.budget > 0 ? (spent / c.budget) * 100 : 0;
+                    return (
+                      <div key={c.id} onClick={() => openEditBudget(c)} className="mb-4 last:mb-0 cursor-pointer hover:bg-slate-700/30 p-2 -mx-2 rounded-xl transition-all active:scale-[0.98]">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-lg">{c.icon}</span>
+                          <span className="text-sm font-medium flex-1">{c.name}</span>
+                          <span className="text-xs font-mono text-slate-400">{fmt(spent)} / {fmt(c.budget)}</span>
+                        </div>
+                        <Progress value={spent} max={c.budget || 1} color={pct > 90 ? '#ef4444' : pct > 70 ? '#f97316' : c.color} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Goals Tab */}
+            {tab === 'goals' && (
+              <div>
+                <p className="text-sm font-semibold text-slate-400 mb-3">🏆 Savings Goals <span className="text-xs font-normal">(tap to edit)</span></p>
+                {goals.map(g => {
+                  const pct = (g.current / g.target) * 100;
+                  return (
+                    <div key={g.id} onClick={() => openEditGoal(g)} className="bg-slate-800/50 rounded-2xl p-5 border border-slate-700/50 mb-3 cursor-pointer hover:bg-slate-700/30 transition-all active:scale-[0.98]">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: `${g.color}20` }}>{g.icon}</div>
+                        <div><p className="font-semibold">{g.name}</p><p className="text-xs text-slate-500">{Math.round(pct)}% complete</p></div>
+                      </div>
+                      <Progress value={g.current} max={g.target} color={g.color} />
+                      <div className="flex justify-between text-xs text-slate-500 mt-2">
+                        <span>Saved: <span className="text-white font-medium">{fmt(g.current)}</span></span>
+                        <span>Goal: <span className="text-white font-medium">{fmt(g.target)}</span></span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Recurring Tab */}
+            {tab === 'recurring' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Monthly</p>
+                    <p className="text-xl font-bold font-mono text-red-400">{fmt(monthlyRecurring)}</p>
+                  </div>
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <p className="text-xs text-slate-500">Yearly</p>
+                    <p className="text-xl font-bold font-mono text-red-400">{fmt(monthlyRecurring * 12)}</p>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-slate-400">🔄 Recurring Expenses</p>
+                {recurring.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <p className="text-4xl mb-2">📭</p>
+                    <p>No recurring expenses</p>
+                  </div>
+                ) : recurring.map(tx => {
+                  const c = getCat(tx.cat);
+                  return (
+                    <div key={tx.id} className="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${c.color}20` }}>{c.icon}</div>
+                      <div className="flex-1"><p className="text-sm font-medium">{tx.desc}</p><p className="text-xs text-slate-500">{c.name} • Monthly</p></div>
+                      <span className="font-mono font-semibold text-red-400">{fmt(tx.amount)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Add Transaction Modal */}
+          {showModal && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end justify-center z-50" onClick={() => setShowModal(false)}>
+              <div className="bg-slate-900 rounded-t-3xl w-full max-w-lg p-6 pb-10 animate-slide-up" onClick={e => e.stopPropagation()}>
+                <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4" />
+                <h2 className="text-lg font-bold text-center mb-4">Add Transaction</h2>
+                <div className="flex gap-2 p-1 bg-slate-800 rounded-xl mb-4">
+                  <button onClick={() => setForm({ ...form, isExpense: true, cat: 1 })} className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${form.isExpense ? 'bg-red-500 text-white' : 'text-slate-400'}`}>Expense</button>
+                  <button onClick={() => setForm({ ...form, isExpense: false, cat: 100 })} className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${!form.isExpense ? 'bg-emerald-500 text-white' : 'text-slate-400'}`}>Income</button>
+                </div>
+                <input type="number" placeholder="0.00" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-center text-3xl font-mono font-bold mb-4 focus:outline-none focus:border-blue-500" />
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {(form.isExpense ? categories : INCOME_CATS).slice(0, 8).map(c => (
+                    <button key={c.id} onClick={() => setForm({ ...form, cat: c.id })} className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${form.cat === c.id ? 'border-blue-500 bg-blue-500/10' : 'border-transparent bg-slate-800'}`}>
+                      <span className="text-xl">{c.icon}</span>
+                      <span className="text-xs text-slate-400">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <input type="text" placeholder="Description (optional)" value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4 focus:outline-none focus:border-blue-500" />
+                <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4 focus:outline-none focus:border-blue-500" />
+                <button onClick={addTx} disabled={!form.amount} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-3 rounded-xl font-semibold transition-all">Add {form.isExpense ? 'Expense' : 'Income'}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Account/Goal Modal */}
+          {editModal.show && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end justify-center z-50" onClick={() => setEditModal({ show: false, type: null, item: null })}>
+              <div className="bg-slate-900 rounded-t-3xl w-full max-w-lg p-6 pb-10 animate-slide-up" onClick={e => e.stopPropagation()}>
+                <div className="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4" />
+                
+                {editModal.type === 'account' && (
+                  <>
+                    <h2 className="text-lg font-bold text-center mb-2">Edit Account</h2>
+                    <p className="text-center text-slate-400 mb-4">{editModal.item.icon} {editModal.item.name}</p>
+                    <label className="text-xs text-slate-500 mb-2 block">Balance (SGD)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      defaultValue={editModal.item.balance} 
+                      onChange={e => setEditModal({ ...editModal, item: { ...editModal.item, balance: e.target.value } })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-center text-2xl font-mono font-bold mb-4 focus:outline-none focus:border-blue-500" 
+                    />
+                    <button onClick={() => updateAccount(editModal.item.id, editModal.item.balance)} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-semibold transition-all">Save</button>
+                  </>
+                )}
+                
+                {editModal.type === 'goal' && (
+                  <>
+                    <h2 className="text-lg font-bold text-center mb-4">Edit Goal</h2>
+                    
+                    <label className="text-xs text-slate-500 mb-2 block">Goal Name</label>
+                    <input 
+                      type="text" 
+                      defaultValue={editModal.item.name} 
+                      onChange={e => setEditModal({ ...editModal, item: { ...editModal.item, name: e.target.value } })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg font-semibold mb-4 focus:outline-none focus:border-blue-500" 
+                    />
+                    
+                    <label className="text-xs text-slate-500 mb-2 block">Icon</label>
+                    <div className="grid grid-cols-6 gap-2 mb-4">
+                      {['🛡️', '✈️', '💻', '🏠', '🚗', '💍', '🎓', '👶', '🏖️', '💰', '🎁', '🏥'].map(icon => (
+                        <button 
+                          key={icon} 
+                          onClick={() => setEditModal({ ...editModal, item: { ...editModal.item, icon } })}
+                          className={`p-2 text-2xl rounded-lg ${editModal.item.icon === icon ? 'bg-blue-600' : 'bg-slate-800'}`}
+                        >{icon}</button>
+                      ))}
+                    </div>
+                    
+                    <label className="text-xs text-slate-500 mb-2 block">Color</label>
+                    <div className="grid grid-cols-6 gap-2 mb-4">
+                      {['#3b82f6', '#10b981', '#f97316', '#ef4444', '#8b5cf6', '#ec4899'].map(color => (
+                        <button 
+                          key={color} 
+                          onClick={() => setEditModal({ ...editModal, item: { ...editModal.item, color } })}
+                          className={`h-10 rounded-lg ${editModal.item.color === color ? 'ring-2 ring-white' : ''}`}
+                          style={{ background: color }}
+                        />
+                      ))}
+                    </div>
+                    
+                    <label className="text-xs text-slate-500 mb-2 block">Current Amount (SGD)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      defaultValue={editModal.item.current} 
+                      onChange={e => setEditModal({ ...editModal, item: { ...editModal.item, current: e.target.value } })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-xl font-mono font-bold mb-4 focus:outline-none focus:border-blue-500" 
+                    />
+                    
+                    <label className="text-xs text-slate-500 mb-2 block">Target Amount (SGD)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      defaultValue={editModal.item.target} 
+                      onChange={e => setEditModal({ ...editModal, item: { ...editModal.item, target: e.target.value } })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-xl font-mono font-bold mb-4 focus:outline-none focus:border-blue-500" 
+                    />
+                    
+                    <button onClick={() => {
+                      setGoals(goals.map(g => g.id === editModal.item.id ? { 
+                        ...g, 
+                        name: editModal.item.name || g.name,
+                        icon: editModal.item.icon || g.icon,
+                        color: editModal.item.color || g.color,
+                        current: parseFloat(editModal.item.current) || 0, 
+                        target: parseFloat(editModal.item.target) || 0 
+                      } : g));
+                      setEditModal({ show: false, type: null, item: null });
+                      showToast('Goal updated!');
+                    }} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-semibold transition-all">Save</button>
+                  </>
+                )}
+                
+                {editModal.type === 'budget' && (
+                  <>
+                    <h2 className="text-lg font-bold text-center mb-2">Edit Budget</h2>
+                    <p className="text-center text-slate-400 mb-4">{editModal.item.icon} {editModal.item.name}</p>
+                    
+                    <label className="text-xs text-slate-500 mb-2 block">Monthly Budget (SGD)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      defaultValue={editModal.item.budget} 
+                      onChange={e => setEditModal({ ...editModal, item: { ...editModal.item, budget: e.target.value } })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-center text-2xl font-mono font-bold mb-4 focus:outline-none focus:border-blue-500" 
+                    />
+                    
+                    <button onClick={() => updateBudget(editModal.item.id, editModal.item.budget)} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-semibold transition-all">Save</button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          <style>{`
+            @keyframes slide-up {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+            .animate-slide-up { animation: slide-up 0.3s ease-out; }
+          `}</style>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
